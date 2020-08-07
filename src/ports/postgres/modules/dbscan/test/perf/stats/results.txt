@@ -1,0 +1,56 @@
+=== Performance ===
+
+gpdb runtimes for 10,000 points: 
+
+4d_4c_0.15s_10000p.csv: 2273.16s
+9d_5c_0.10s_10000p.csv: 1617.82s
+16d_6c_0.07s_10000p.csv: 1302.00s
+25d_7c_0.06s_10000p.csv: 4409.491s
+36d_8c_0.05s_10000p.csv: 3079.900s
+49d_9c_0.04s_10000p.csv: 4936.609s
+64d_10c_0.03s_10000p.csv: 3691.806s
+
+sklearn.dbscan() runtimes for 10,000 points:
+
+4d_4c_0.15s_10000p.csv: 0.64s
+9d_5c_0.10s_10000p.csv: 0.91s
+16d_6c_0.07s_10000p.csv: 1.47s
+25d_7c_0.06s_10000p.csv: 1.70s
+36d_8c_0.05s_10000p.csv: 1.57s
+49d_9c_0.04s_10000p.csv: 2.82s
+64d_10c_0.03s_10000p.csv: 2.89s
+
+sklearn.dbscan() runtimes for 100,000 points:
+
+4d_4c_0.15s_100000p.csv: CPU time: 41.53s
+9d_5c_0.10s_100000p.csv: CPU time: 71.76s
+16d_6c_0.07s_100000p.csv: CPU time: 96.9s
+25d_7c_0.06s_100000p.csv: CPU time: 111.17s
+36d_8c_0.05s_100000p.csv: CPU time: 159.24s
+49d_9c_0.04s_100000p.csv: CPU time: 195.54s
+64d_10c_0.03s_100000p.csv: CPU time: 242.89s
+
+^ Final 64-dimensional 100,000 point example is ~ 100MB of data, took
+sklearn about 4 min to label all clusters correctly.
+
+=== Correctness ===
+
+Both appear to return correct results in all cases I've look at.
+Example output from madlib dbscan for 9d - 5 cluster 10,000 point input:
+
+dbscan=# select cluster_id,count(*) from output_blobs_9d_5c_010s_10000p group by cluster_id order by cluster_id;
+ cluster_id | count
+------------+-------
+          0 |  2000
+          1 |  2000
+          2 |  2000
+          3 |  2000
+          4 |  2000
+
+Both return only 3 clusters for the "4d 4 cluster" input, but it looks like
+2 of the clusters overlapped so much that they are essentially all one big
+cluster.  So correct as far as the dbscan algorithm (or any other algorithm
+probably) can tell.  This is just a result of making the clusters too wide
+(sample variance too high) when generating them randomly.
+
+

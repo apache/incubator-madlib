@@ -1,0 +1,25 @@
+\timing on
+DROP TABLE IF EXISTS output_blobs_03d_3c_200s_100000p,output_blobs_03d_3c_200s_100000p_summary;
+SELECT madlib.dbscan('input_blobs_03d_3c_200s_100000p', 'output_blobs_03d_3c_200s_100000p', 'id', 'point', 0.0180, 1, 'squared_dist_norm2', 'kd_tree');
+COPY output_blobs_03d_3c_200s_100000p TO '/home/gpadmin/madlib/src/ports/postgres/modules/dbscan/test/perf/blobs/output_blobs_03d_3c_200s_100000p.csv' CSV HEADER;
+DROP TABLE IF EXISTS output_blobs_04d_4c_150s_100000p,output_blobs_04d_4c_150s_100000p_summary;
+SELECT madlib.dbscan('input_blobs_04d_4c_150s_100000p', 'output_blobs_04d_4c_150s_100000p', 'id', 'point', 0.0300, 1, 'squared_dist_norm2', 'kd_tree');
+COPY output_blobs_04d_4c_150s_100000p TO '/home/gpadmin/madlib/src/ports/postgres/modules/dbscan/test/perf/blobs/output_blobs_04d_4c_150s_100000p.csv' CSV HEADER;
+DROP TABLE IF EXISTS output_blobs_09d_5c_100s_100000p,output_blobs_09d_5c_100s_100000p_summary;
+SELECT madlib.dbscan('input_blobs_09d_5c_100s_100000p', 'output_blobs_09d_5c_100s_100000p', 'id', 'point', 0.0400, 1, 'squared_dist_norm2', 'kd_tree');
+COPY output_blobs_09d_5c_100s_100000p TO '/home/gpadmin/madlib/src/ports/postgres/modules/dbscan/test/perf/blobs/output_blobs_09d_5c_100s_100000p.csv' CSV HEADER;
+DROP TABLE IF EXISTS output_blobs_16d_6c_007s_100000p,output_blobs_16d_6c_007s_100000p_summary;
+SELECT madlib.dbscan('input_blobs_16d_6c_007s_100000p', 'output_blobs_16d_6c_007s_100000p', 'id', 'point', 0.0010, 1, 'squared_dist_norm2', 'kd_tree');
+COPY output_blobs_16d_6c_007s_100000p TO '/home/gpadmin/madlib/src/ports/postgres/modules/dbscan/test/perf/blobs/output_blobs_16d_6c_007s_100000p.csv' CSV HEADER;
+DROP TABLE IF EXISTS output_blobs_25d_7c_006s_100000p,output_blobs_25d_7c_006s_100000p_summary;
+SELECT madlib.dbscan('input_blobs_25d_7c_006s_100000p', 'output_blobs_25d_7c_006s_100000p', 'id', 'point', 0.0008, 1, 'squared_dist_norm2', 'kd_tree');
+COPY output_blobs_25d_7c_006s_100000p TO '/home/gpadmin/madlib/src/ports/postgres/modules/dbscan/test/perf/blobs/output_blobs_25d_7c_006s_100000p.csv' CSV HEADER;
+DROP TABLE IF EXISTS output_blobs_36d_8c_005s_100000p,output_blobs_36d_8c_005s_100000p_summary;
+SELECT madlib.dbscan('input_blobs_36d_8c_005s_100000p', 'output_blobs_36d_8c_005s_100000p', 'id', 'point', 0.0008, 1, 'squared_dist_norm2', 'kd_tree');
+COPY output_blobs_36d_8c_005s_100000p TO '/home/gpadmin/madlib/src/ports/postgres/modules/dbscan/test/perf/blobs/output_blobs_36d_8c_005s_100000p.csv' CSV HEADER;
+DROP TABLE IF EXISTS output_blobs_49d_9c_004s_100000p,output_blobs_49d_9c_004s_100000p_summary;
+SELECT madlib.dbscan('input_blobs_49d_9c_004s_100000p', 'output_blobs_49d_9c_004s_100000p', 'id', 'point', 0.0007, 1, 'squared_dist_norm2', 'kd_tree');
+COPY output_blobs_49d_9c_004s_100000p TO '/home/gpadmin/madlib/src/ports/postgres/modules/dbscan/test/perf/blobs/output_blobs_49d_9c_004s_100000p.csv' CSV HEADER;
+DROP TABLE IF EXISTS output_blobs_64d_10c_003s_100000p,output_blobs_64d_10c_003s_100000p_summary;
+SELECT madlib.dbscan('input_blobs_64d_10c_003s_100000p', 'output_blobs_64d_10c_003s_100000p', 'id', 'point', 0.0007, 1, 'squared_dist_norm2', 'kd_tree');
+COPY output_blobs_64d_10c_003s_100000p TO '/home/gpadmin/madlib/src/ports/postgres/modules/dbscan/test/perf/blobs/output_blobs_64d_10c_003s_100000p.csv' CSV HEADER;

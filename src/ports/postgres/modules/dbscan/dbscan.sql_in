@@ -519,71 +519,230 @@ CREATE AGGREGATE MADLIB_SCHEMA.build_snowflake_table(
     FINALFUNC=MADLIB_SCHEMA.sf_final
 );
 
-CREATE OR REPLACE FUNCTION MADLIB_SCHEMA.find_core_points_transition(
-    state                       INTEGER[],
-    id_in                         BIGINT,
-    expr_points DOUBLE PRECISION[],
-    eps     DOUBLE PRECISION,
-    min_samples INTEGER,
-    metric  VARCHAR,
-    n_rows  INTEGER[],
-    leaf_id     INTEGER
-
-) RETURNS INTEGER[][] AS $$
-PythonFunctionBodyOnlyNoSchema(`dbscan', `dbscan')
-    return dbscan.find_core_points_transition(**globals())
-$$ LANGUAGE plpythonu
-m4_ifdef(`__HAS_FUNCTION_PROPERTIES__', `NO SQL', `');
-
-CREATE OR REPLACE FUNCTION MADLIB_SCHEMA.find_core_points_merge(
-    state1          INTEGER[][],
-    state2          INTEGER[][]
-) RETURNS INTEGER[][] AS $$
-PythonFunctionBodyOnlyNoSchema(`dbscan', `dbscan')
-    return dbscan.find_core_points_merge(**globals())
-$$ LANGUAGE plpythonu
-m4_ifdef(`__HAS_FUNCTION_PROPERTIES__', `NO SQL', `');
-
-CREATE OR REPLACE FUNCTION MADLIB_SCHEMA.find_core_points_final(
-    state INTEGER[][]
-) RETURNS INTEGER[] AS $$
-PythonFunctionBodyOnlyNoSchema(`dbscan', `dbscan')
-    return dbscan.find_core_points_final(**globals())
-$$ LANGUAGE plpythonu
-m4_ifdef(`__HAS_FUNCTION_PROPERTIES__', `NO SQL', `');
-
---id_in, expr_points, eps, min_samples, metric, n_rows, leaf_id,
-DROP AGGREGATE IF EXISTS MADLIB_SCHEMA.find_core_points(
-    BIGINT,
-    DOUBLE PRECISION[],
-    DOUBLE PRECISION,
-    INTEGER,
-    VARCHAR,
-    INTEGER[],
-    INTEGER);
-CREATE AGGREGATE MADLIB_SCHEMA.find_core_points(
-    BIGINT,
-    DOUBLE PRECISION[],
-    DOUBLE PRECISION,
-    INTEGER,
-    VARCHAR,
-    INTEGER[],
-    INTEGER
-)(
-    STYPE=INTEGER[][],
-    SFUNC=MADLIB_SCHEMA.find_core_points_transition,
-    m4_ifdef(`__POSTGRESQL__', `', `prefunc=MADLIB_SCHEMA.find_core_points_merge,')
-    FINALFUNC=MADLIB_SCHEMA.find_core_points_final
+DROP TYPE IF EXISTS MADLIB_SCHEMA.dbscan_record CASCADE;
+CREATE TYPE MADLIB_SCHEMA.dbscan_record AS (
+    id              BIGINT,
+    point           DOUBLE PRECISION[],
+    is_core_point   BOOL,
+    cluster_id      BIGINT,
+    leaf_id         BIT(16),
+    dist_id         BIT(16)
 );
 
-DROP TYPE IF EXISTS MADLIB_SCHEMA.unpacked_2d CASCADE;
-CREATE TYPE MADLIB_SCHEMA.unpacked_2d AS (
+DROP TYPE IF EXISTS MADLIB_SCHEMA.edge CASCADE;
+CREATE TYPE MADLIB_SCHEMA.edge AS (
     src BIGINT,
     dest BIGINT);
 
-CREATE OR REPLACE FUNCTION MADLIB_SCHEMA.unpack_2d (packed INTEGER[][])
-  RETURNS SETOF MADLIB_SCHEMA.unpacked_2d
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA.unpack_edge (packed INTEGER[][])
+  RETURNS SETOF MADLIB_SCHEMA.edge
 AS $$
     return packed
+$$ LANGUAGE plpythonu VOLATILE
+m4_ifdef(`\_\_HAS_FUNCTION_PROPERTIES\_\_', `MODIFIES SQL DATA', `');
+
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA._dbscan_safe_ln(x DOUBLE PRECISION)
+RETURNS DOUBLE PRECISION AS
+$$
+    SELECT CASE WHEN x > 0.0
+        THEN ln(x)
+        ELSE -1000.0
+    END
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA._dbscan_safe_exp(x DOUBLE PRECISION)
+RETURNS DOUBLE PRECISION AS
+$$
+    SELECT CASE WHEN x > -600.0
+        THEN exp(x)
+        ELSE 0.0
+    END
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA._dbscan_split_volume(
+    V DOUBLE    PRECISION,
+    eps_bin     DOUBLE PRECISION,
+    eps_bins    DOUBLE PRECISION
+) RETURNS DOUBLE PRECISION
+AS
+$$ SELECT
+    eps_bin / eps_bins * V
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA._dbscan_estimate_neighbors(
+    internal_points     DOUBLE PRECISION,
+    V                   DOUBLE PRECISION,
+    eps                 DOUBLE PRECISION,
+    D                   BIGINT
+) RETURNS DOUBLE PRECISION
+AS
+$$ SELECT
+    CASE WHEN V > 0.0
+    THEN
+        internal_points * (eps^D / V)
+    ELSE
+        1.0
+    END
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA._dbscan_range_query_penalty(
+    internal_points BIGINT,
+    neighbors DOUBLE PRECISION
+) RETURNS DOUBLE PRECISION
+AS
+$$ SELECT
+    greatest(
+        neighbors,
+        CASE WHEN internal_points > 2
+            -- 60x faster than log(internal_points, 2.0)
+            -- due to DOUBLE PRECISION types instead of NUMERIC
+            THEN ceil(ln(internal_points::DOUBLE PRECISION) / ln(2.0::DOUBLE PRECISION))
+            ELSE 1.0
+        END
+    )
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE TYPE MADLIB_SCHEMA._dbscan_losses AS (
+    left_avail      BIGINT,
+    right_avail     BIGINT,
+    left_loss       DOUBLE PRECISION,
+    right_loss      DOUBLE PRECISION
+);
+
+-- Decide how much of node's available segments to allocate
+--  to its left child.  The rest will be allocated to its
+--  right child
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA._dbscan_allocate_segs(
+    avail_segs BIGINT,
+    left_points DOUBLE PRECISION,
+    right_points DOUBLE PRECISION,
+    rqp_left DOUBLE PRECISION,
+    rqp_right DOUBLE PRECISION
+) RETURNS BIGINT AS
+$$
+    WITH p(left_penalty, right_penalty) AS (
+        SELECT
+            rqp_left * left_points,
+            rqp_right * right_points
+    )
+    SELECT
+        round(
+            left_penalty * avail_segs / (left_penalty + right_penalty)
+        )::BIGINT
+    FROM p
+$$ LANGUAGE SQL IMMUTABLE;
+
+-- Given internal and external point counts in left and right regions,
+-- returns optimal number of segments to allocate to left and right
+-- nodes, as well as their losses.
+--
+-- TODO: we can probably remove range-query neighbor penalty for
+--       external points if we use rtree.count() instead of
+--       rtree.intersection().  Just need to finish adding the
+--       per-cluster rtrees
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA._dbscan_segmentation_loss(
+    left_internal BIGINT,
+    right_internal BIGINT,
+    left_external BIGINT,
+    right_external BIGINT,
+    avail_segs BIGINT,
+    V DOUBLE PRECISION,
+    eps DOUBLE PRECISION,
+    D BIGINT,
+    eps_bin DOUBLE PRECISION,
+    eps_bins DOUBLE PRECISION
+ ) RETURNS MADLIB_SCHEMA._dbscan_losses AS
+$$
+    WITH local AS (
+        SELECT
+            (left_internal + left_external)               left_points,
+            (right_internal + right_external)             right_points,
+            eps_bin                                       left_eps_bins,
+            eps_bins - eps_bin                            right_eps_bins,
+            eps_bins                                      all_eps_bins
+    ), penalties AS (
+        SELECT
+            MADLIB_SCHEMA._dbscan_range_query_penalty(
+                left_internal + right_internal,
+                MADLIB_SCHEMA._dbscan_estimate_neighbors(
+                    left_internal + right_internal,
+                    V, eps, D
+                )
+            )                                             rqp_all,
+            MADLIB_SCHEMA._dbscan_range_query_penalty(
+                left_internal,
+                MADLIB_SCHEMA._dbscan_estimate_neighbors(
+                    left_internal,
+                    MADLIB_SCHEMA._dbscan_split_volume(
+                        V,
+                        left_eps_bins,
+                        all_eps_bins
+                    ), 
+                    eps,
+                    D
+                )
+            )                                             rqp_left,
+            MADLIB_SCHEMA._dbscan_range_query_penalty(
+                right_internal,
+                MADLIB_SCHEMA._dbscan_estimate_neighbors(
+                    right_internal,
+                        MADLIB_SCHEMA._dbscan_split_volume(
+                        V,
+                        left_eps_bins,
+                        all_eps_bins
+                    ), eps, D
+                )
+            )                                             rqp_right
+        FROM local
+    ), seg_alloc(left_avail, all_penalty) AS (
+        SELECT
+            MADLIB_SCHEMA._dbscan_allocate_segs(
+                avail_segs,
+                left_points,
+                right_points,
+                rqp_left,
+                rqp_right
+            ),
+            (left_points + right_points) * rqp_all
+        FROM local, penalties
+    )
+    SELECT
+        CASE WHEN
+            0 < left_avail AND left_avail < avail_segs
+        THEN
+            ROW(
+                left_avail,
+                avail_segs - left_avail,
+                (left_points * 1.0 / left_avail) * rqp_left,
+                (right_points * 1.0 / (avail_segs - left_avail)) * rqp_right
+               )::MADLIB_SCHEMA._dbscan_losses
+        ELSE -- forget about splitting, not worth it
+            ROW(
+                0.0,
+                avail_segs,
+                -- We intentionally do not divide by avail_segs,
+                --  because if we choose not to split, then there can be no
+                --  more division later on
+                (left_points + right_points) * rqp_all,
+                0.0
+               )::MADLIB_SCHEMA._dbscan_losses
+        END
+    FROM local, penalties, seg_alloc
+$$ LANGUAGE SQL IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION MADLIB_SCHEMA._dbscan_leaf(
+    db_rec              MADLIB_SCHEMA.dbscan_record,
+    eps                 REAL,
+    min_samples         INT,
+    metric              TEXT,
+    num_internal_points BIGINT,
+    num_external_points BIGINT
+) RETURNS SETOF MADLIB_SCHEMA.dbscan_record AS
+$$
+    import plpy
+    args.append(SD)
+
+    PythonFunctionBodyOnlyNoSchema(dbscan,dbscan)
+    WithTracebackForwarding(return dbscan.dbscan_leaf(*args))
 $$ LANGUAGE plpythonu VOLATILE
 m4_ifdef(`\_\_HAS_FUNCTION_PROPERTIES\_\_', `MODIFIES SQL DATA', `');
