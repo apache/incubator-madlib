@@ -1589,6 +1589,10 @@ def _dbscan_leaf(db_rec, eps, min_samples, metric, num_internal_points,
            yield ext_rec
         DEBUG.print_timing("yield_external_records")
 
+        # Clean up for next time
+        for key in SD.keys():
+            del SD[key]
+
 # The snowflake table is used to reduce the size of the edge table.
 # Note that the sole purpose of the edge table is finding the connected
 # components. Which means removing some of the edges is fine as long as the
