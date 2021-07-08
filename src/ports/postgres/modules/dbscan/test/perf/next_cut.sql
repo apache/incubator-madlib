@@ -74,7 +74,6 @@ SELECT i, node_id, eps_bin,
                 --  params query but filtered out at the end with a WHERE clause.  We would
                 --  have the same issue for eps_bin = 0 except that we always make
                 --  the cut after the bin rather than before (between eps_bin and eps_bin + 1)
-                WHERE eps_bin != eps_bins - 1
             ), optimize AS (
                 SELECT * FROM (
                     SELECT

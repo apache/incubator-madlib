@@ -785,7 +785,7 @@ class DBSCAN_optimized(DBSCAN):
             loss_table AS (
                 SELECT i, eps_bin,
                     left_internal,
-                    {num_points} - left_internal AS right_internal,
+                    {num_points} as points_in_node,
                     left_external,
                     right_external,
                     {self.schema_madlib}._dbscan_segmentation_loss(
@@ -817,13 +817,6 @@ class DBSCAN_optimized(DBSCAN):
                         )) AS V
                     FROM world_bounds
                 ) AS volume
-                -- We don't want to split after the last bin (eps_bin = eps_bins - 1), but we need
-                --  it in order to compute right_external with the LEAD() agg for the bin
-                --  just to the left of it (eps_bin = eps_bins - 2). Therefore, it's included in the
-                --  params query but filtered out at the end with a WHERE clause.  We would
-                --  have the same issue for eps_bin = 0 except that we always make
-                --  the cut after the bin rather than before (between eps_bin and eps_bin + 1)
-                WHERE eps_bin != eps_bins - 1
             ),
             optimize AS (
                 SELECT i, lower, cutoff, upper,
@@ -832,8 +825,18 @@ class DBSCAN_optimized(DBSCAN):
                 FROM (
                     SELECT
                         i,
-                        left_internal,
-                        right_internal,
+			CASE WHEN (losses).right_avail = 0
+			   THEN
+                               points_in_node
+                           ELSE
+                               left_internal
+                        END AS left_internal,
+			CASE WHEN (losses).right_avail = 0
+			   THEN
+                               0::BIGINT
+                           ELSE
+                               points_in_node - left_internal
+                        END AS right_internal,
                         (losses).left_avail AS left_avail,
                         (losses).right_avail AS right_avail,
                         GREATEST((losses).left_loss,(losses).right_loss) AS total_loss,
@@ -841,9 +844,9 @@ class DBSCAN_optimized(DBSCAN):
                             GREATEST((losses).left_loss,(losses).right_loss)
                         ) OVER() AS total_min,
                         wb.lower,
-                        CASE WHEN (losses).left_avail = 0
+                        CASE WHEN (losses).right_avail = 0
                         THEN
-                            wb.lower
+                            wb.upper
                         ELSE
                             wb.lower + {eps}*(eps_bin+1)
                         END AS cutoff,
@@ -853,23 +856,23 @@ class DBSCAN_optimized(DBSCAN):
             )
             SELECT s.id,
                 ARRAY[i] AS coords,
-                CASE WHEN s.point[i] < cutoff 
+                CASE WHEN s.point[i] <= cutoff 
                     THEN left_avail
                     ELSE right_avail
                 END AS avail_segs,
-                CASE WHEN point[i] < cutoff
+                CASE WHEN point[i] <= cutoff
                     THEN left_internal
                     ELSE right_internal
                 END AS points_in_node,
-                CASE WHEN s.point[i] < cutoff 
+                CASE WHEN s.point[i] <= cutoff 
                     THEN ARRAY[lower]
                     ELSE ARRAY[cutoff]
                 END AS lower_bounds,
-                CASE WHEN s.point[i] < cutoff 
+                CASE WHEN s.point[i] <= cutoff 
                     THEN ARRAY[cutoff]
                     ELSE ARRAY[upper]
                 END AS upper_bounds,
-                (s.point[i] >= cutoff)::INT::BIT(16) AS node_id
+                (s.point[i] > cutoff)::INT::BIT(16) AS node_id
             FROM optimize, {source_table} s
         """.format(**locals())
         plpy.info(first_cut_sql)
@@ -934,7 +937,7 @@ class DBSCAN_optimized(DBSCAN):
                     right_external,
                     {self.schema_madlib}._dbscan_segmentation_loss(
                         left_internal,
-                        points_in_node - left_internal,
+                        points_in_node,
                         left_external,
                         right_external,
                         avail_segs,
@@ -945,26 +948,29 @@ class DBSCAN_optimized(DBSCAN):
                         eps_bins::DOUBLE PRECISION
                     ) AS losses
                 FROM params JOIN volume USING (node_id)
-		-- We don't want to split after the last bin (eps_bin = eps_bins - 1), but we need
-		--  it in order to compute right_external with the LEAD() agg for the bin
-		--  just to the left of it (eps_bin = eps_bins - 2). Therefore, it's included in the
-		--  params query but filtered out at the end with a WHERE clause.  We would
-		--  have the same issue for eps_bin = 0 except that we always make
-		--  the cut after the bin rather than before (between eps_bin and eps_bin + 1)
-                WHERE eps_bin != eps_bins - 1
             ), optimize AS (
                 SELECT * FROM (
                     SELECT
                         node_id,
                         i,
-                        left_internal,
-                        right_internal,
                         (losses).left_avail,
                         (losses).right_avail,
+			CASE WHEN (losses).right_avail = 0
+			   THEN
+                               points_in_node
+                           ELSE
+                               left_internal
+                        END AS left_internal,
+			CASE WHEN (losses).right_avail = 0
+			   THEN
+                               0::BIGINT
+                           ELSE
+                               points_in_node - left_internal
+                        END AS right_internal,
                         node_bounds.lower,
-                        CASE WHEN (losses).left_avail = 0
+                        CASE WHEN (losses).right_avail = 0
                             THEN
-                                node_bounds.lower
+                                node_bounds.upper
                             ELSE
                                 node_bounds.lower + {eps}*(eps_bin+1)
                             END AS cutoff,
@@ -977,16 +983,16 @@ class DBSCAN_optimized(DBSCAN):
                 ) a WHERE loss_rank = 1
             )
             SELECT id, coords || i AS coords,
-                CASE WHEN point[i] < opt.cutoff 
+                CASE WHEN point[i] <= opt.cutoff 
                     THEN left_avail
                     ELSE right_avail
                 END AS avail_segs,
-                CASE WHEN point[i] < opt.cutoff
+                CASE WHEN point[i] <= opt.cutoff
                     THEN left_internal
                     ELSE right_internal
                 END AS points_in_node,
                 lower_bounds ||
-                    CASE WHEN point[i] < opt.cutoff
+                    CASE WHEN point[i] <= opt.cutoff
                     THEN
                         lower
                     ELSE
@@ -994,13 +1000,13 @@ class DBSCAN_optimized(DBSCAN):
                     END AS lower_bounds,
                     opt.cutoff,
                 upper_bounds ||
-                    CASE WHEN point[i] < opt.cutoff
+                    CASE WHEN point[i] <= opt.cutoff
                     THEN
                         opt.cutoff
                     ELSE
                         upper
                     END AS upper_bounds,
-                (node_id << 1) | (point[i] >= opt.cutoff)::INT::BIT(16) AS node_id
+                (node_id << 1) | (point[i] > opt.cutoff)::INT::BIT(16) AS node_id
             FROM {source_table}
             JOIN {prev_node}
                 USING (id)
@@ -1012,7 +1018,6 @@ class DBSCAN_optimized(DBSCAN):
         for i in range(max_depth):
             DEBUG.plpy.execute(segment_source_sql)
             plpy.execute("""
-                CREATE TABLE prev_node{i} AS SELECT * FROM {next_cut};
                 DROP TABLE IF EXISTS {prev_node};
                 ALTER TABLE {next_cut} RENAME TO {prev_node}
             """.format(**locals()))
@@ -1492,12 +1497,7 @@ def _dbscan_leaf(db_rec, eps, min_samples, metric, num_internal_points,
     records = leaf.records
     external_records = leaf.external_records
 
-    try:
-        leaf.add_point(db_rec)
-    except:
-        plpy.info("Tried to add db_rec={}".format(db_rec))
-        plpy.info("len(db_rec.point) = {}".format(len(db_rec.point)))
-        plpy.info("db_rec._np_point.shape = {}".format(len(db_rec._np_point.shape)))
+    leaf.add_point(db_rec)
        
     if len(records) == num_internal_points and \
        len(external_records) == num_external_points:
@@ -1506,7 +1506,7 @@ def _dbscan_leaf(db_rec, eps, min_samples, metric, num_internal_points,
 
         # Find all internal neighbors of external points
         for ext_rec in external_records:
-            DEBUG.start_timing("external_rangequery")
+            #DEBUG.start_timing("external_rangequery")
             neighbors = leaf.range_query(ext_rec)
             #DEBUG.print_timing("external_rangequery")
             #DEBUG.start_timing("external_neighbors_append")
@@ -1531,12 +1531,10 @@ def _dbscan_leaf(db_rec, eps, min_samples, metric, num_internal_points,
             #DEBUG.print_timing('internal_rangequery')
 
             if rec.not_core_point(min_samples):
-                DEBUG.plpy.info("Labelling noise point")
                 leaf.label_point(rec, label.NOISE_POINT)
                 continue
 
             cluster += 1
-            DEBUG.plpy.info("Seeding cluster {} from id {}".format(cluster, db_rec.id))
 
             leaf.label_point(rec, cluster)
             yield dbscan_record(rec)
@@ -1592,6 +1590,8 @@ def _dbscan_leaf(db_rec, eps, min_samples, metric, num_internal_points,
         # Clean up for next time
         for key in SD.keys():
             del SD[key]
+
+        DEBUG.print_timing("dbscan_leaf")
 
 # The snowflake table is used to reduce the size of the edge table.
 # Note that the sole purpose of the edge table is finding the connected

@@ -718,8 +718,8 @@ $$
                )::MADLIB_SCHEMA._dbscan_losses
         ELSE -- forget about splitting, not worth it
             ROW(
-                0.0,
                 avail_segs,
+                0,
                 -- We intentionally do not divide by avail_segs,
                 --  because if we choose not to split, then there can be no
                 --  more division later on
