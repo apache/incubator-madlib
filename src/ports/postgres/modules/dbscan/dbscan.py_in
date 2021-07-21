@@ -591,8 +591,8 @@ class DBSCAN_optimized(DBSCAN):
                 SELECT
                     id,
                     point,
-                    0::BIT(16) AS leaf_id,
-                    0::BIT(16) AS dist_id,
+                    0::BIT(64) AS leaf_id,
+                    0::BIT(64) AS dist_id,
                     __dist_id__
                 FROM {source_table}, {dist_map}
                     WHERE seg_id=0
@@ -623,7 +623,7 @@ class DBSCAN_optimized(DBSCAN):
                     (NTILE(2) OVER(
                             ORDER BY point[1]
                         ) - 1
-                    )::BIT(16) AS leaf_id
+                    )::BIT(64) AS leaf_id
                 FROM {source_table}
             UNION ALL
                 SELECT
@@ -635,7 +635,7 @@ class DBSCAN_optimized(DBSCAN):
                             PARTITION BY leaf_id
                             ORDER BY point[depth % {n_dims} + 1]
                     ) - 1
-                )::BIT(16))::BIT(16) AS leaf_id
+                )::BIT(64))::BIT(64) AS leaf_id
                 FROM {source_table} JOIN node
                     USING (id)
                     WHERE depth < {max_depth}
@@ -872,7 +872,7 @@ class DBSCAN_optimized(DBSCAN):
                     THEN ARRAY[cutoff]
                     ELSE ARRAY[upper]
                 END AS upper_bounds,
-                (s.point[i] > cutoff)::INT::BIT(16) AS node_id
+                (s.point[i] > cutoff)::INT::BIT(64) AS node_id
             FROM optimize, {source_table} s
         """.format(**locals())
         plpy.info(first_cut_sql)
@@ -1006,7 +1006,7 @@ class DBSCAN_optimized(DBSCAN):
                     ELSE
                         upper
                     END AS upper_bounds,
-                (node_id << 1) | (point[i] > opt.cutoff)::INT::BIT(16) AS node_id
+                (node_id << 1) | (point[i] > opt.cutoff)::INT::BIT(64) AS node_id
             FROM {source_table}
             JOIN {prev_node}
                 USING (id)

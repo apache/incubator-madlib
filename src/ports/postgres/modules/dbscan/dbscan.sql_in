@@ -525,8 +525,8 @@ CREATE TYPE MADLIB_SCHEMA.dbscan_record AS (
     point           DOUBLE PRECISION[],
     is_core_point   BOOL,
     cluster_id      BIGINT,
-    leaf_id         BIT(16),
-    dist_id         BIT(16)
+    leaf_id         BIT(64),
+    dist_id         BIT(64)
 );
 
 DROP TYPE IF EXISTS MADLIB_SCHEMA.edge CASCADE;
