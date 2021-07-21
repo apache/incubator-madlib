@@ -72,8 +72,8 @@ def dbscan(schema_madlib, source_table, output_table, id_column, expr_point,
         num_segs = get_seg_number()
 
         if depth is None:
-            # Default to using num_leaves = num_segs
-            depth = int(ceil(log(num_segs,2)))
+            # Default to num_segs
+            depth = num_segs
 
         algorithm = get_algorithm_name(algorithm, BRUTE_FORCE,
             [BRUTE_FORCE, KD_TREE], 'DBSCAN')
