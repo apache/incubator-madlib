@@ -1,0 +1,36 @@
+Choosing 6 cluster centers...
+c0: [-1, -1, -1, -1, 1, 1, -1, -1, 1, -1, 1, -1, 1, -1, 1, -1]
+c1: [1, -1, 1, -1, 1, -1, -1, -1, 1, -1, -1, -1, -1, -1, 1, 1]
+c2: [1, -1, -1, -1, 1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, -1]
+c3: [1, 1, 1, -1, 1, 1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1]
+c4: [-1, 1, 1, 1, 1, -1, -1, 1, 1, 1, -1, 1, 1, 1, -1, -1]
+c5: [1, 1, -1, -1, 1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1]
+| c0 - c1 |^2 = 24
+| c0 - c2 |^2 = 24
+| c0 - c3 |^2 = 28
+| c0 - c4 |^2 = 40
+| c0 - c5 |^2 = 36
+| c1 - c2 |^2 = 32
+| c1 - c3 |^2 = 20
+| c1 - c4 |^2 = 40
+| c1 - c5 |^2 = 36
+| c2 - c3 |^2 = 36
+| c2 - c4 |^2 = 40
+| c2 - c5 |^2 = 36
+| c3 - c4 |^2 = 36
+| c3 - c5 |^2 = 24
+| c4 - c5 |^2 = 28
+Generating 100000 points in 6 clusters with sigma=0.07...
+Wrote 100000 points to blobs/input_blobs_16d_6c_0.07s_100000p.csv
+Loaded input csv.
+Starting DBSCAN at 1596857942.41...
+CPU time: 96.9
+Real time: 96.9631888866
+Estimated number of clusters: 6
+Estimated number of noise points: 17
+Homogeneity: 1.000
+Completeness: 0.999
+V-measure: 1.000
+Adjusted Rand Index: 1.000
+Adjusted Mutual Information: 0.999
+Silhouette Coefficient: 0.909

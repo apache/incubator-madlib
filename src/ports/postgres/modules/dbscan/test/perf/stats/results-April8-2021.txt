@@ -1,0 +1,42 @@
+Commit:  62c92c69fc8ef9bce92fa958ca76cc6fce3e2641
+
+For 10,000 points:
+
+
+For 100,000 points:
+
+4d 4c 0.15 sigma:
+
+3888.0s = 64.8 min
+
+9d 5c 0.15 sigma:
+
+3646.2s = 60.8 min
+
+16d 6c 0.15 sigma:
+
+2980.6s = 49.7 min
+
+
+
+Mostly right, with some extra noise points:
+-------------------------------
+25d 7c 0.15 sigma:
+
+3016.8s = 50.3 min
+
+
+
+Completely invalid results after here...
+-------------------------------
+36d 8c 0.15 sigma:
+
+2083.2s
+
+49d 9c 0.15 sigma:
+
+2585.1s
+
+64d 10c 0.15 sigma:
+
+1751.8s

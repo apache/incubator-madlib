@@ -1,0 +1,33 @@
+Choosing 5 cluster centers...
+[-1, 1, -1, 1, -1, 1, 1, 1, -1]
+[-1, 1, 1, 1, 1, 1, 1, -1, 1]
+[-1, 1, -1, 1, 1, 1, -1, -1, 1]
+[-1, 1, -1, -1, 1, 1, 1, -1, -1]
+[1, 1, 1, 1, -1, 1, -1, -1, -1]
+c0: [-1, 1, -1, 1, -1, 1, 1, 1, -1]
+c1: [-1, 1, 1, 1, 1, 1, 1, -1, 1]
+c2: [-1, 1, -1, 1, 1, 1, -1, -1, 1]
+c3: [-1, 1, -1, -1, 1, 1, 1, -1, -1]
+c4: [1, 1, 1, 1, -1, 1, -1, -1, -1]
+| c0 - c1 |^2 = 16
+| c0 - c2 |^2 = 16
+| c0 - c3 |^2 = 12
+| c0 - c4 |^2 = 16
+| c1 - c2 |^2 = 8
+| c1 - c3 |^2 = 12
+| c1 - c4 |^2 = 16
+| c2 - c3 |^2 = 12
+| c2 - c4 |^2 = 16
+| c3 - c4 |^2 = 20
+Generating 10000 points in 5 clusters with sigma=0.1...
+Wrote 10000 points to blobs/input_blobs_9d_5c_0.1s_10000p.csv
+CPU time: 0.92
+Real time: 0.910534143448
+Estimated number of clusters: 5
+Estimated number of noise points: 16
+Homogeneity: 0.999
+Completeness: 0.993
+V-measure: 0.996
+Adjusted Rand Index: 0.998
+Adjusted Mutual Information: 0.993
+Silhouette Coefficient: 0.870

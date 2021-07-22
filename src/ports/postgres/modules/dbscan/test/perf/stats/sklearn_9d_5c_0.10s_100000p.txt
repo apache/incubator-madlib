@@ -1,0 +1,30 @@
+Choosing 5 cluster centers...
+c0: [1, -1, -1, 1, 1, -1, 1, -1, 1]
+c1: [1, 1, 1, -1, 1, -1, -1, 1, -1]
+c2: [1, 1, -1, 1, -1, -1, 1, -1, 1]
+c3: [-1, 1, -1, -1, -1, -1, -1, -1, 1]
+c4: [1, -1, 1, 1, -1, 1, 1, -1, 1]
+| c0 - c1 |^2 = 24
+| c0 - c2 |^2 = 8
+| c0 - c3 |^2 = 20
+| c0 - c4 |^2 = 12
+| c1 - c2 |^2 = 24
+| c1 - c3 |^2 = 20
+| c1 - c4 |^2 = 28
+| c2 - c3 |^2 = 12
+| c2 - c4 |^2 = 12
+| c3 - c4 |^2 = 24
+Generating 100000 points in 5 clusters with sigma=0.1...
+Wrote 100000 points to blobs/input_blobs_9d_5c_0.10s_100000p.csv
+Loaded input csv.
+Starting DBSCAN at 1596857475.05...
+CPU time: 71.76
+Real time: 71.8091528416
+Estimated number of clusters: 5
+Estimated number of noise points: 7
+Homogeneity: 1.000
+Completeness: 1.000
+V-measure: 1.000
+Adjusted Rand Index: 1.000
+Adjusted Mutual Information: 1.000
+Silhouette Coefficient: 0.866

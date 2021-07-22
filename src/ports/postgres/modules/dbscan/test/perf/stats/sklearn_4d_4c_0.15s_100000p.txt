@@ -1,0 +1,25 @@
+Choosing 4 cluster centers...
+c0: [-1, -1, 1, 1]
+c1: [-1, -1, -1, -1]
+c2: [-1, 1, -1, -1]
+c3: [-1, -1, -1, 1]
+| c0 - c1 |^2 = 8
+| c0 - c2 |^2 = 12
+| c0 - c3 |^2 = 4
+| c1 - c2 |^2 = 4
+| c1 - c3 |^2 = 4
+| c2 - c3 |^2 = 8
+Generating 100000 points in 4 clusters with sigma=0.15...
+Wrote 100000 points to blobs/input_blobs_4d_4c_0.15s_100000p.csv
+Loaded input csv.
+Starting DBSCAN at 1596857050.44...
+CPU time: 41.53
+Real time: 41.5384891033
+Estimated number of clusters: 4
+Estimated number of noise points: 0
+Homogeneity: 1.000
+Completeness: 1.000
+V-measure: 1.000
+Adjusted Rand Index: 1.000
+Adjusted Mutual Information: 1.000
+Silhouette Coefficient: 0.799
